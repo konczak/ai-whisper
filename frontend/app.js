@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (response.ok) {
                         console.log('Audio sent successfully');
                         const json = await response.json();
-                        transcribeResultContainer.innerHTML = json.results[0].transcript;
+                        transcribeResultContainer.value = json.results[0].transcript;
                     } else {
                         console.error('Failed to send audio:', response.statusText);
                     }
