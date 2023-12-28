@@ -3,13 +3,18 @@ from flask_cors import CORS
 from tempfile import NamedTemporaryFile
 import whisper
 import torch
+import os
 
 # Check if NVIDIA GPU is available
 torch.cuda.is_available()
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+print(f"DEVICE {DEVICE}")
+
+MODEL_TO_USE = os.getenv('MODEL_TO_USE', 'base')
+print(f"MODEL_TO_USE {MODEL_TO_USE}")
 
 # Load the Whisper model:
-model = whisper.load_model("base", device=DEVICE)
+model = whisper.load_model(MODEL_TO_USE, device=DEVICE)
 
 app = Flask(__name__)
 CORS(app)
@@ -23,6 +28,7 @@ def hello():
 def handler():
     if not request.files:
         # If the user didn't submit any files, return a 400 (Bad Request) error.
+        print('no files')
         abort(400)
 
     # For each file, let's store the results in a list of dictionaries.
@@ -37,11 +43,26 @@ def handler():
         # The file will get deleted when it drops out of scope.
         handle.save(temp)
         # Let's get the transcript of the temporary file.
-        result = model.transcribe(temp.name)
+        # result = model.transcribe(temp.name)
+
+        # load audio and pad/trim it to fit 30 seconds
+        audio = whisper.load_audio(temp.name)
+        audio = whisper.pad_or_trim(audio)
+
+        mel = whisper.log_mel_spectrogram(audio).to(model.device)
+        #print("mel")
+        #print(mel)
+
+        # decode the audio
+        options = whisper.DecodingOptions(language='pl',fp16=False)
+        print(f"options {options}")
+        result = whisper.decode(model, mel, options)
+
         # Now we can store the result object for this file.
         results.append({
             'filename': filename,
-            'transcript': result['text'],
+            'language': options.language,
+            'transcript': result.text,
         })
 
     # This will be automatically converted to JSON.

@@ -110,7 +110,7 @@ In the Dockerfile we will add the following lines:
 3. Run the following command to run the container:
 
 ```shell
-    docker run -p 5000:5000 whisper-api
+    docker run -p 5000:5000 -e MODEL_TO_USE=small whisper-api
 ```
 
 > ❗ This API can be deployed anywhere where Docker can be used.
