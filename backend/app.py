@@ -49,7 +49,7 @@ def handler():
         audio = whisper.load_audio(temp.name)
         audio = whisper.pad_or_trim(audio)
 
-        mel = whisper.log_mel_spectrogram(audio).to(model.device)
+        mel = whisper.log_mel_spectrogram(audio, n_mels=128).to(model.device)
         #print("mel")
         #print(mel)
 
