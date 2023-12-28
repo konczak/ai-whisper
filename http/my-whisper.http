@@ -1,0 +1,15 @@
+### CHECK LIFENESS
+GET http://localhost:5000/
+
+### SEND AUDTO FILE TO TRANSCRIBE
+POST http://localhost:5000/whisper
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="file"
+
+< /path/to/file
+--WebAppBoundary--
+
+###
+
