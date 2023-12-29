@@ -67,3 +67,4 @@ out/
 .history
 venv
 __pycache__
+backend/models/

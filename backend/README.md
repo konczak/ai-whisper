@@ -118,6 +118,17 @@ In the Dockerfile we will add the following lines:
 > If you want to use GPU you need to change Dockerfile and share the GPU.
 > I won't go into this deeper as this is an introduction. [Docker GPU](https://docs.docker.com/config/containers/resource_constraints/)
 
+4. To load large-v3 model and avoid downloading it every time mount container download folder `/root/.cache/whisper/` with host folder during start:
+
+```shell
+  docker run -p 5000:5000 -e MODEL_TO_USE=large-v3 -v ./models/:/root/.cache/whisper/ whisper-api
+```
+
+> ⚠ **on Windows**: above won't work!
+> - change `./models/` to Windows style `.\models\` and run from cmd or PowerShell,
+> - check in Docker Desktop whether folder is allowed to be mounted,
+> 😥 for Git Bash on Windows do not know the proper command,
+
 ### How to test the API?
 
 1. You can test the API by sending a POST request to the route `http://localhost:5000/whisper` with a file in it. Body should be form-data.
