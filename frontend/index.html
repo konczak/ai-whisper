@@ -3,83 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Speech-to-Text Recorder</title>
-    <style>
-        body {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background-color: #f0f0f0; /* Light gray background */
-        }
-
-        #container {
-            text-align: center;
-        }
-
-        button {
-            font-size: 1em;
-            padding: 10px 20px;
-            margin: 10px;
-            cursor: pointer;
-            border: none;
-            border-radius: 5px;
-            color: #fff;
-            background-color: #4285f4; /* Google Blue */
-        }
-
-        #startBtn {
-            background-color: #34a853; /* Google Green */
-        }
-
-        #stopBtn {
-            background-color: #f44336; /* Google Red */
-        }
-
-        #loader {
-            display: none;
-            margin: 20px;
-        }
-
-        textarea {
-            width: 100%;
-            height: 150px;
-            margin: 10px;
-            padding: 10px;
-            resize: none;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-        }
-
-        .spinner {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            border: 4px solid transparent;
-            border-top-color: #4285f4; /* Google Blue */
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
-            100% {
-                transform: rotate(360deg);
-            }
-        }
-    </style>
+    <title>Zamiana mowy na tekst</title>
+    <link rel="stylesheet" href="main.css" type="text/css"/>
 </head>
 <body>
 <div id="container">
-    <button id="startRecording">🎤 Start Recording</button>
-    <button id="stopRecording">🛑 Stop Recording</button>
+    <button id="startRecording" onclick="startRecording()">🎤 Rozpocznij</button>
+    <button id="stopRecording" onclick="stopRecording()" disabled="true">🛑 Zatrzymaj</button>
 
     <div id="audioContainer"></div>
-    <div id="spinner" class="spinner"></div>
-    <textarea id="transcribeResultContainer" placeholder="Transcribed text will appear here..." readonly></textarea>
+    <div id="spinner" class="spinner" data-state="hidden"></div>
+    <div id="timer">0</div>
+    <textarea id="transcribeResult" placeholder="Zamieniona treść pojawi się tutaj..." readonly onclick="copyToClipboard(this)"></textarea>
 </div>
 
 <script src="app.js"></script>
