@@ -11,6 +11,7 @@ function init() {
         spinner: document.getElementById('spinner'),
         transcribeResult: document.getElementById('transcribeResult'),
         timer: document.getElementById('timer'),
+        copiedElement: document.getElementById('copied'),
     });
 
     // Check if the browser supports the necessary APIs
@@ -142,8 +143,31 @@ function updateAudioControl(recordedBlob) {
     elements.audioContainer.appendChild(audio);
 }
 
-function copyToClipboard(event) {
+function textareaCopyToClipboard(event) {
+    copyToClipboard(event.value);
+}
+function copyToClipboard(value) {
+    const textarea = document.createElement('textarea');
+    textarea.value = value;
 
+    // Make the textarea invisible
+    textarea.style.position = 'absolute';
+    textarea.style.left = '-9999px';
+
+    document.body.appendChild(textarea);
+
+    // Select the text in the textarea
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
+
+    // Execute the copy command
+    document.execCommand('copy');
+
+    // Remove the textarea from the DOM
+    document.body.removeChild(textarea);
+
+    elements.copiedElement.style.display = 'block';
+    setTimeout(() => elements.copiedElement.style.display = 'none', 10_000)
 }
 
 document.addEventListener('DOMContentLoaded', init);

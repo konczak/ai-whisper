@@ -61,3 +61,7 @@ textarea {
 #timer {
     font-size: 2em;
 }
+
+#copied {
+    display: none;
+}
