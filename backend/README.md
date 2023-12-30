@@ -129,6 +129,21 @@ In the Dockerfile we will add the following lines:
 > - check in Docker Desktop whether folder is allowed to be mounted,
 > 😥 for Git Bash on Windows do not know the proper command,
 
+### GPU support (🛑 does not work)
+
+```shell
+  docker run -p 5000:5000 --gpus=all -e MODEL_TO_USE=large-v3 -v ./models/:/root/.cache/whisper/ whisper-api
+```
+
+My current setup is Windows 10 with NVIDIA GPU and driver using WDDM 2.7.
+Unfortunately NVIDIA does not support GPU usage in Docker containers on Windows host. 
+Laptop has also builtin GPU but the driver is from 2017 and does not use WDDM 2.5 or higher which is mandatory.
+
+> 📝 Tried multiple ways to set up Docker image base on `nvidia/cuda` and `mcr.microsoft.com/windows:1809` but with no success. 
+
+> ℹ There is option to set up inside Windows virtual box with Linux and then setup Docker inside Linux but didn't try it.  
+
+
 ### How to test the API?
 
 1. You can test the API by sending a POST request to the route `http://localhost:5000/whisper` with a file in it. Body should be form-data.
