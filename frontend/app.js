@@ -1,7 +1,8 @@
 let elements = null;
 let mediaRecorder = null;
 let recordingTimeoutId = null;
-let timerTimeoutId = null;
+let timerIntervalId = null;
+let chunksEnforcingIntervalId = null;
 
 function init() {
     elements = Object.freeze({
@@ -59,10 +60,14 @@ async function recordingAndProcessing() {
     } catch (error) {
         notifyAboutError('Błąd dostępu do mikrofonu', error);
     }
+
+    chunksEnforcingIntervalId = setInterval(function() {
+        mediaRecorder.requestData();
+    }, 2_000);
 }
 
 function startTimer() {
-    timerTimeoutId = setInterval(updateTimer, 1000);
+    timerIntervalId = setInterval(updateTimer, 1000);
     elements.timer.dataset.time = 0;
 }
 
@@ -107,9 +112,13 @@ async function stopRecording() {
 function finishProcessing() {
     toggleSpinner();
     toggleBtn(elements.startRecordingBtn);
-    if (timerTimeoutId) {
-        clearInterval(timerTimeoutId);
+    if (timerIntervalId) {
+        clearInterval(timerIntervalId);
     }
+    if (chunksEnforcingIntervalId) {
+        clearInterval(chunksEnforcingIntervalId);
+    }
+
 }
 
 function notifyAboutError(message, error) {
