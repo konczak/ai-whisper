@@ -1,24 +1,70 @@
 (function () {
-    let elements = null;
     let mediaRecorder = null;
     let recordingTimeoutId = null;
     let timerIntervalId = null;
     let chunksEnforcingIntervalId = null;
 
-    function init() {
-        elements = Object.freeze({
-            startRecordingBtn: document.getElementById('startRecording'),
-            stopRecordingBtn: document.getElementById('stopRecording'),
-            audioContainer: document.getElementById('audioContainer'),
-            spinner: document.getElementById('spinner'),
-            transcribeResult: document.getElementById('transcribeResult'),
-            timer: document.getElementById('timer'),
-            copiedElement: document.getElementById('copied'),
-        });
+    class Page {
+        static elements;
 
-        elements.startRecordingBtn.addEventListener('click', startRecording);
-        elements.stopRecordingBtn.addEventListener('click', stopRecording);
-        elements.transcribeResult.addEventListener('click', textareaCopyToClipboard);
+        static bindElements() {
+            Page.elements = Object.freeze({
+                startRecordingBtn: document.getElementById('startRecording'),
+                stopRecordingBtn: document.getElementById('stopRecording'),
+                audioContainer: document.getElementById('audioContainer'),
+                spinner: document.getElementById('spinner'),
+                transcribeResult: document.getElementById('transcribeResult'),
+                timer: document.getElementById('timer'),
+                copiedElement: document.getElementById('copied'),
+            });
+
+            Page.elements.startRecordingBtn.addEventListener('click', startRecording);
+            Page.elements.stopRecordingBtn.addEventListener('click', stopRecording);
+            Page.elements.transcribeResult.addEventListener('click', textareaCopyToClipboard);
+        }
+
+        static hideSpinner() {
+            Page.elements.spinner.style.display = 'none';
+            Page.elements.spinner.dataset.state = 'hidden';
+        }
+
+        static showSpinner() {
+            Page.elements.spinner.style.display = 'block';
+            Page.elements.spinner.dataset.state = 'visible';
+        }
+
+        static toggleSpinner() {
+            if (Page.elements.spinner.dataset.state === 'hidden') {
+                Page.showSpinner();
+            } else {
+                Page.hideSpinner();
+            }
+        }
+
+        static disableBtn(btn) {
+            btn.disabled = true;
+        }
+
+        static enableBtn(btn) {
+            btn.disabled = false;
+        }
+
+        static toggleBtn(btn) {
+            btn.disabled ? Page.enableBtn(btn) : Page.disableBtn(btn);
+        }
+
+        static updateAudioControl(recordedBlob) {
+            const audioUrl = URL.createObjectURL(recordedBlob);
+
+            const audio = new Audio(audioUrl);
+            audio.controls = true;
+            Page.elements.audioContainer.innerHTML = '';
+            Page.elements.audioContainer.appendChild(audio);
+        }
+    }
+
+    function init() {
+        Page.bindElements();
 
         // Check if the browser supports the necessary APIs
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -46,13 +92,13 @@
                 }
                 try {
                     const recordedBlob = new Blob(recordedChunks, {type: 'audio/mp3'});
-                    updateAudioControl(recordedBlob);
+                    Page.updateAudioControl(recordedBlob);
 
                     startTimer();
 
                     const json = await sendAudioToTranscribe(recordedBlob);
 
-                    elements.transcribeResult.value = json.results[0].transcript;
+                    Page.elements.transcribeResult.value = json.results[0].transcript;
                 } catch (error) {
                     notifyAboutError('Błąd wysyłania ścieżki audio do transkrypcji', error);
                 }
@@ -76,50 +122,32 @@
 
     function startTimer() {
         timerIntervalId = setInterval(updateTimer, 1000);
-        elements.timer.dataset.time = 0;
+        Page.elements.timer.dataset.time = 0;
     }
 
     function updateTimer() {
-        elements.timer.dataset.time++;
-        elements.timer.textContent = `Czas oczekiwania na wynik ${elements.timer.dataset.time}s`;
-    }
-
-    function toggleBtn(btn) {
-        if (btn.disabled) {
-            btn.disabled = false;
-        } else {
-            btn.disabled = true;
-        }
-    }
-
-    function toggleSpinner() {
-        if (elements.spinner.dataset.state === 'hidden') {
-            elements.spinner.style.display = 'block';
-            elements.spinner.dataset.state = 'visible';
-        } else {
-            elements.spinner.style.display = 'none';
-            elements.spinner.dataset.state = 'hidden';
-        }
+        Page.elements.timer.dataset.time++;
+        Page.elements.timer.textContent = `Czas oczekiwania na wynik ${elements.timer.dataset.time}s`;
     }
 
     async function startRecording() {
-        toggleSpinner();
-        toggleBtn(elements.startRecordingBtn);
-        toggleBtn(elements.stopRecordingBtn);
+        Page.toggleSpinner();
+        Page.toggleBtn(Page.elements.startRecordingBtn);
+        Page.toggleBtn(Page.elements.stopRecordingBtn);
         await recordingAndProcessing();
     }
 
     async function stopRecording() {
         mediaRecorder.stop();
-        toggleBtn(elements.stopRecordingBtn);
+        Page.toggleBtn(Page.elements.stopRecordingBtn);
         if (recordingTimeoutId) {
             clearTimeout(recordingTimeoutId);
         }
     }
 
     function finishProcessing() {
-        toggleSpinner();
-        toggleBtn(elements.startRecordingBtn);
+        Page.toggleSpinner();
+        Page.toggleBtn(Page.elements.startRecordingBtn);
         if (timerIntervalId) {
             clearInterval(timerIntervalId);
         }
@@ -130,8 +158,8 @@
 
     function notifyAboutError(message, error) {
         console.error(message, error);
-        elements.transcribeResult.value = message;
-        elements.transcribeResult.style.backgroundColor = 'red';
+        Page.elements.transcribeResult.value = message;
+        Page.elements.transcribeResult.style.backgroundColor = 'red';
     }
 
     async function sendAudioToTranscribe(recordedBlob) {
@@ -148,15 +176,6 @@
         } else {
             notifyAboutError('Błąd wysyłania audio do transkrypcji', response.statusText);
         }
-    }
-
-    function updateAudioControl(recordedBlob) {
-        const audioUrl = URL.createObjectURL(recordedBlob);
-
-        const audio = new Audio(audioUrl);
-        audio.controls = true;
-        elements.audioContainer.innerHTML = '';
-        elements.audioContainer.appendChild(audio);
     }
 
     function textareaCopyToClipboard(event) {
@@ -183,8 +202,8 @@
         // Remove the textarea from the DOM
         document.body.removeChild(textarea);
 
-        elements.copiedElement.style.display = 'block';
-        setTimeout(() => elements.copiedElement.style.display = 'none', 10_000)
+        Page.elements.copiedElement.style.display = 'block';
+        setTimeout(() => Page.elements.copiedElement.style.display = 'none', 10_000)
     }
 
     document.addEventListener('DOMContentLoaded', init);
