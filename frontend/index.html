@@ -8,13 +8,13 @@
 </head>
 <body>
 <div id="container">
-    <button id="startRecording" onclick="startRecording()">🎤 Rozpocznij</button>
-    <button id="stopRecording" onclick="stopRecording()" disabled="true">🛑 Zatrzymaj</button>
+    <button id="startRecording">🎤 Rozpocznij</button>
+    <button id="stopRecording" disabled="true">🛑 Zatrzymaj</button>
 
     <div id="audioContainer"></div>
     <div id="spinner" class="spinner" data-state="hidden"></div>
     <div id="timer">0</div>
-    <textarea id="transcribeResult" placeholder="Zamieniona treść pojawi się tutaj..." readonly onclick="textareaCopyToClipboard(this)"></textarea>
+    <textarea id="transcribeResult" placeholder="Zamieniona treść pojawi się tutaj..." readonly></textarea>
     <div id="copied">Skopiowano!</div>
 </div>
 
