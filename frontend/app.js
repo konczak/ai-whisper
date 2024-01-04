@@ -67,6 +67,38 @@
         }
     }
 
+    class Queue {
+        constructor() {
+            this.items = [];
+            this.accessPromise = Promise.resolve();
+        }
+
+        async push(recordedChunks) {
+            await this.accessPromise;
+
+            this.accessPromise = new Promise(resolve => {
+                if (Array.isArray(recordedChunks)) {
+                    this.items.push(...recordedChunks);
+                } else {
+                    this.items.push(recordedChunks);
+                }
+                resolve();
+            });
+        }
+
+        async takeAll() {
+            await this.accessPromise;
+
+            const allAvailable = await new Promise(resolve => {
+                resolve(this.items.splice(0, this.items.length));
+            });
+
+            this.accessPromise = Promise.resolve();
+
+            return allAvailable;
+        }
+    }
+
     class Timer {
         constructor() {
             this.seconds = 0;
