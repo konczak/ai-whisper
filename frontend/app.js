@@ -1,8 +1,41 @@
 (function () {
-    let mediaRecorder = null;
-    let recordingTimeoutId = null;
-    let chunksEnforcingIntervalId = null;
-    let timer = null;
+    let audioRecorder = null;
+    let whisperApiClient = null;
+
+    class WhisperApiClient {
+
+        constructor() {
+            this.inProgress = false;
+        }
+        isRequestInProgress() {
+            return this.inProgress;
+        }
+        async sendAudioToTranscribe(prompt, recordedBlob) {
+            if (this.inProgress) {
+                return;
+            }
+            this.inProgress = true;
+            const formData = new FormData();
+            formData.append('my-recording-on-fly.mp3', recordedBlob, 'recording.unknown');
+            //formData.append('prompt', prompt);
+
+            try {
+                const response = await fetch('http://localhost:5000/whisper', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    return await response.json();
+                } else {
+                    notifyAboutError('Błąd wysyłania audio do transkrypcji', response.statusText);
+                    throw new Error(response.statusText);
+                }
+            } finally {
+                this.inProgress = false;
+            }
+        }
+    }
 
     class Page {
         static elements;
@@ -58,18 +91,23 @@
 
             const audio = new Audio(audioUrl);
             audio.controls = true;
-            Page.elements.audioContainer.innerHTML = '';
+            // Page.elements.audioContainer.innerHTML = '';
             Page.elements.audioContainer.appendChild(audio);
         }
 
         static updateTimer(seconds) {
             Page.elements.timer.textContent = `Czas oczekiwania na wynik ${seconds}s`;
         }
+
+        static updateTranscribedText(transcribedText) {
+            Page.elements.transcribeResult.value = transcribedText;
+        }
     }
 
     class Queue {
         constructor() {
             this.items = [];
+            this.securedFirstChunk = null;
             this.accessPromise = Promise.resolve();
         }
 
@@ -90,7 +128,15 @@
             await this.accessPromise;
 
             const allAvailable = await new Promise(resolve => {
-                resolve(this.items.splice(0, this.items.length));
+                const spliced = this.items.splice(0, this.items.length);
+                if (this.securedFirstChunk) {
+                    spliced.unshift(this.securedFirstChunk);
+                } {
+                    this.securedFirstChunk = spliced[0];
+                }
+
+                resolve(spliced);
+                // resolve(this.items);
             });
 
             this.accessPromise = Promise.resolve();
@@ -118,9 +164,103 @@
         }
     }
 
+    class AudioRecorder {
+        constructor() {
+            this.recordedChunksQueue = null;
+            this.mediaRecorder = null;
+            this.recordingTimeoutId = null;
+            this.timer = null;
+            this.transcribedText = '';
+        }
+
+        async handleDataAvailable(event) {
+            console.log('data!', event.data.size);
+            if (event.data.size > 0) {
+                await this.recordedChunksQueue.push(event.data);
+
+                if (!whisperApiClient.isRequestInProgress()) {
+                    await this.transcribe();
+                }
+            }
+        }
+
+        async transcribe() {
+            while (whisperApiClient.isRequestInProgress()) {
+                await sleep(100);
+            }
+            try {
+                const recordedChunks = await this.recordedChunksQueue.takeAll();
+                if (recordedChunks.length === 0) {
+                    console.log('there are no chunks to transcribe - skip');
+                    return;
+                }
+                console.log('recordedChunks', recordedChunks);
+                const recordedBlob = new Blob(recordedChunks, {type: this.mediaRecorder.mimeType});
+                Page.updateAudioControl(recordedBlob);
+
+                this.timer = new Timer(Page.elements.timer);
+                this.timer.start();
+
+                const json = await whisperApiClient.sendAudioToTranscribe(this.transcribedText, recordedBlob);
+                this.transcribedText += json.results[0].transcript;
+
+                Page.updateTranscribedText(this.transcribedText);
+            } catch (error) {
+                notifyAboutError('Błąd wysyłania ścieżki audio do transkrypcji', error);
+            } finally {
+                this.timer.stop();
+            }
+        }
+
+        /*
+        forceProducingChunks() {
+            this.mediaRecorder.requestData();
+        }
+         */
+
+        async handleStop() {
+            await this.transcribe();
+
+            this.finishProcessing();
+        }
+
+        async start() {
+            try {
+                this.recordedChunksQueue = new Queue();
+                const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+                this.mediaRecorder = new MediaRecorder(stream);
+                this.transcribedText = '';
+
+                this.mediaRecorder.ondataavailable = (event) => this.handleDataAvailable(event);
+                this.mediaRecorder.onstop = () => this.handleStop();
+
+                // force split into time frame chunks
+                this.mediaRecorder.start(5_000);
+
+                // Stop recording automatically to prevent long audio
+                //this.recordingTimeoutId = setTimeout(() => this.stop(), 30_000);
+            } catch (error) {
+                notifyAboutError('Błąd dostępu do mikrofonu', error);
+            }
+        }
+
+        stop() {
+            if (this.mediaRecorder.state !== 'inactive') {
+                this.mediaRecorder.stop();
+            }
+            clearTimeout(this.recordingTimeoutId);
+        }
+
+        finishProcessing() {
+            Page.toggleSpinner();
+            Page.toggleBtn(Page.elements.startRecordingBtn);
+            this.timer.stop();
+        }
+    }
 
     function init() {
         Page.bindElements();
+        whisperApiClient = new WhisperApiClient();
 
         // Check if the browser supports the necessary APIs
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -128,77 +268,17 @@
         }
     }
 
-    async function recordingAndProcessing() {
-        let recordedChunks = [];
-
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({audio: true});
-            mediaRecorder = new MediaRecorder(stream);
-
-            mediaRecorder.ondataavailable = (event) => {
-                if (event.data.size > 0) {
-                    recordedChunks.push(event.data);
-                }
-            };
-
-            mediaRecorder.onstop = async () => {
-                console.log('hello from onstop')
-                if (chunksEnforcingIntervalId) {
-                    clearInterval(chunksEnforcingIntervalId);
-                }
-                try {
-                    const recordedBlob = new Blob(recordedChunks, {type: 'audio/mp3'});
-                    Page.updateAudioControl(recordedBlob);
-
-                    timer = new Timer(Page.elements.timer)
-                    timer.start();
-
-                    const json = await sendAudioToTranscribe(recordedBlob);
-
-                    Page.elements.transcribeResult.value = json.results[0].transcript;
-                } catch (error) {
-                    notifyAboutError('Błąd wysyłania ścieżki audio do transkrypcji', error);
-                }
-
-                finishProcessing();
-            };
-
-            recordedChunks = []; // Clear previous recorded chunks
-            mediaRecorder.start();
-
-            // Stop recording automatically to prevent long audio
-            recordingTimeoutId = setTimeout(stopRecording, 15_000);
-        } catch (error) {
-            notifyAboutError('Błąd dostępu do mikrofonu', error);
-        }
-
-        chunksEnforcingIntervalId = setInterval(function () {
-            mediaRecorder.requestData();
-        }, 2_000);
-    }
-
     async function startRecording() {
         Page.toggleSpinner();
         Page.toggleBtn(Page.elements.startRecordingBtn);
         Page.toggleBtn(Page.elements.stopRecordingBtn);
-        await recordingAndProcessing();
+        audioRecorder = new AudioRecorder();
+        await audioRecorder.start();
     }
 
     async function stopRecording() {
-        mediaRecorder.stop();
+        await audioRecorder.stop();
         Page.toggleBtn(Page.elements.stopRecordingBtn);
-        if (recordingTimeoutId) {
-            clearTimeout(recordingTimeoutId);
-        }
-    }
-
-    function finishProcessing() {
-        Page.toggleSpinner();
-        Page.toggleBtn(Page.elements.startRecordingBtn);
-        timer.stop();
-        if (chunksEnforcingIntervalId) {
-            clearInterval(chunksEnforcingIntervalId);
-        }
     }
 
     function notifyAboutError(message, error) {
@@ -207,20 +287,8 @@
         Page.elements.transcribeResult.style.backgroundColor = 'red';
     }
 
-    async function sendAudioToTranscribe(recordedBlob) {
-        const formData = new FormData();
-        formData.append('my-recording-on-fly.mp3', recordedBlob, 'recording.mp3');
-
-        const response = await fetch('http://localhost:5000/whisper', {
-            method: 'POST',
-            body: formData
-        });
-
-        if (response.ok) {
-            return await response.json();
-        } else {
-            notifyAboutError('Błąd wysyłania audio do transkrypcji', response.statusText);
-        }
+    function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 
     function textareaCopyToClipboard(event) {
