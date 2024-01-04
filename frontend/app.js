@@ -1,8 +1,8 @@
 (function () {
     let mediaRecorder = null;
     let recordingTimeoutId = null;
-    let timerIntervalId = null;
     let chunksEnforcingIntervalId = null;
+    let timer = null;
 
     class Page {
         static elements;
@@ -61,7 +61,31 @@
             Page.elements.audioContainer.innerHTML = '';
             Page.elements.audioContainer.appendChild(audio);
         }
+
+        static updateTimer(seconds) {
+            Page.elements.timer.textContent = `Czas oczekiwania na wynik ${seconds}s`;
+        }
     }
+
+    class Timer {
+        constructor() {
+            this.seconds = 0;
+            this.intervalId = null;
+        }
+
+        start() {
+            this.intervalId = setInterval(() => {
+                this.seconds++;
+                Page.updateTimer(this.seconds);
+            }, 1000);
+        }
+
+        stop() {
+            clearInterval(this.intervalId);
+            this.intervalId = null;
+        }
+    }
+
 
     function init() {
         Page.bindElements();
@@ -94,7 +118,8 @@
                     const recordedBlob = new Blob(recordedChunks, {type: 'audio/mp3'});
                     Page.updateAudioControl(recordedBlob);
 
-                    startTimer();
+                    timer = new Timer(Page.elements.timer)
+                    timer.start();
 
                     const json = await sendAudioToTranscribe(recordedBlob);
 
@@ -120,16 +145,6 @@
         }, 2_000);
     }
 
-    function startTimer() {
-        timerIntervalId = setInterval(updateTimer, 1000);
-        Page.elements.timer.dataset.time = 0;
-    }
-
-    function updateTimer() {
-        Page.elements.timer.dataset.time++;
-        Page.elements.timer.textContent = `Czas oczekiwania na wynik ${elements.timer.dataset.time}s`;
-    }
-
     async function startRecording() {
         Page.toggleSpinner();
         Page.toggleBtn(Page.elements.startRecordingBtn);
@@ -148,9 +163,7 @@
     function finishProcessing() {
         Page.toggleSpinner();
         Page.toggleBtn(Page.elements.startRecordingBtn);
-        if (timerIntervalId) {
-            clearInterval(timerIntervalId);
-        }
+        timer.stop();
         if (chunksEnforcingIntervalId) {
             clearInterval(chunksEnforcingIntervalId);
         }
